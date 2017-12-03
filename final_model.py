@@ -3,6 +3,8 @@ import matplotlib.pylab as plt
 import numpy as np
 from scipy.misc import imread
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import hamming_loss
 
 #%%
 
@@ -180,10 +182,58 @@ from sklearn.metrics import f1_score
 def f1__score_micro(y_true, y_pred):
     return f1_score(y_true, y_pred, average='micro')
 
+
+#%%
+    
+# bp mll loss function
+# y_true, y_pred must be 2D tensors of shape (batch dimension, number of labels)
+# y_true must satisfy y_true[i][j] == 1 iff sample i has label j
+def bp_mll_loss(y_true, y_pred):
+ 
+    # get true and false labels
+    y_i = K.equal(y_true, K.ones_like(y_true))
+    y_i_bar = K.not_equal(y_true, K.ones_like(y_true))
+    
+    # cast to float as keras backend has no logical and
+    y_i = K.cast(y_i, dtype='float32')
+    y_i_bar = K.cast(y_i_bar, dtype='float32')
+
+    # get indices to check
+    truth_matrix = pairwise_and(y_i, y_i_bar)
+
+    # calculate all exp'd differences
+    sub_matrix = pairwise_sub(y_pred, y_pred)
+    exp_matrix = K.exp(-sub_matrix)
+
+    # check which differences to consider and sum them
+    sparse_matrix = exp_matrix * truth_matrix
+    sums = K.sum(sparse_matrix, axis=[1,2])
+
+    # get normalizing terms and apply them
+    y_i_sizes = K.sum(y_i, axis=1)
+    y_i_bar_sizes = K.sum(y_i_bar, axis=1)
+    normalizers = y_i_sizes * y_i_bar_sizes
+    results = sums / normalizers
+
+    # sum over samples
+    return K.sum(results)
+
+# compute pairwise differences between elements of the tensors a and b
+def pairwise_sub(a, b):
+    column = K.expand_dims(a, 2)
+    row = K.expand_dims(b, 1)
+    return column - row
+
+# compute pairwise logical and between elements of the tensors a and b
+def pairwise_and(a, b):
+    column = K.expand_dims(a, 2)
+    row = K.expand_dims(b, 1)
+    return K.minimum(column, row)
+
 #%%
 
-batch_size = 256
-epochs = 2
+batch_size = 512
+epochs = 5
 
 model = Sequential()
 
@@ -207,22 +257,22 @@ model.add(Dense(num_classes))
 model.add(Activation("sigmoid"))
 
 
-model.compile(loss='binary_crossentropy', 
+model.compile(loss=bp_mll_loss, 
               optimizer='rmsprop', 
               metrics=['binary_accuracy', 'categorical_accuracy', f1])
 print(model.summary())
 
 
 # Use 1000 images for training at first because SLOW
-model.fit(x_train[:1000], 
-          y_train[:1000], 
-          batch_size=batch_size, 
-          epochs=epochs,
-          validation_data=(x_test, y_test),
-          shuffle=True)
+hist = model.fit(x_train[:1000], 
+                 y_train[:1000], 
+                 batch_size=batch_size, 
+                 epochs=epochs,
+                 validation_data=(x_test, y_test),
+                 shuffle=True)
 
 
-#%%
+#%% Model evaluation
 
 scores = model.evaluate(x_test, y_test, verbose=2)
 
@@ -235,13 +285,38 @@ threshold = 0.5
 pred = model.predict(x_test)
 pred[np.where(pred > threshold)] = 1
 pred[np.where(pred <= threshold)] = 0
-y_pred = pred.astype(np.bool)
+y_pred = pred
+print("F1:", f1_score(y_test, y_pred, average='micro'))
+print("Hamming loss:", hamming_loss(y_test, y_pred))
+#%%
 
+def plot_train_metrics():
+    plt.subplot(1,2,1)
+    plt.plot(hist.history['binary_accuracy'])
+    plt.title("binary_acc")
+    plt.ylim((0, 1))
+    plt.subplot(1,2,2)
+    plt.plot(hist.history['loss'])
+    plt.title("loss")
+    plt.subplot(1,2,1)
+    plt.plot(hist.history['val_f1'])
+    plt.title("bin_acc/f1")
+    plt.ylim((0, 1))
+    plt.tight_layout()
+    
+plot_train_metrics()
 
-print(f1_score(y_test, y_pred, average='micro'))
+#%% Confusion-matrix
 
-
-
+for i in range(y_train.shape[1]):
+    print("Col {}".format(i))
+    tn, fp, fn, tp = confusion_matrix(y_test[:,i], y_pred[:,i]).ravel()
+    print("Label {}".format(labels[i]))
+    print("True-Neg:", tn)
+    print("False-Neg:", fn)
+    print("True-Pos:", tp)
+    print("False-Pos:", tn)
+    print("")
 
 # In[24]:
 
