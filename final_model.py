@@ -5,6 +5,7 @@ from scipy.misc import imread
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import hamming_loss
+from sklearn.utils import class_weight
 
 #%%
 
@@ -20,29 +21,7 @@ get_file(dl_file, dl_url+dl_file, cache_dir='./', cache_subdir=database_path, ex
 image_count = 20000
 image_dim = (128, 128, 3) # 128 x 128; RGB
 
-#%%
-
-def form_image_data(normalize_values=False): 
-    # normalizing range to be in 0.0 to 1.0
-    my_dtype = "uint8"
-    if normalize_values:
-        my_dtype = np.float32
-        
-    x_color = np.zeros((image_count, *image_dim), dtype=my_dtype)
-    for i in range(image_count):
-        img = imread("train/images/im" + str(i+1) +".jpg")
-        if normalize_values:
-            img = img / 255
-        if len(img.shape) == 3:
-            x_color[i] = img
-        else:    
-            x_color[i] = np.repeat(img[:,:,np.newaxis], 3, axis=2) # B&W RGB representation
-    return x_color
-    
-images_X = form_image_data(normalize_values=True)
-
-
-#%%
+#%% Form y
 
 num_classes = 14 + 1
 UNCLASSIFIED_BIT = 14
@@ -83,6 +62,35 @@ for row in y:
         row[UNCLASSIFIED_BIT] = 1
 
 #%%
+# normalizing range to be in 0.0 to 1.0
+my_dtype = "uint8"
+normalize_values = True
+
+my_dtype = "uint8"
+if normalize_values:
+    my_dtype = np.float32
+
+def read_x(batch_size, begin_index, y):
+    x_color = np.zeros((batch_size, *image_dim), dtype=my_dtype)
+    end_index = begin_index + batch_size
+
+    for i in range(begin_index, end_index):
+        img = imread("train/images/im" + str(i+1) +".jpg")
+        if normalize_values:
+            img = img / 255
+        if len(img.shape) == 3:
+            x_color[i-begin_index] = img
+        else:    
+            x_color[i-begin_index] = np.repeat(img[:,:,np.newaxis], 3, axis=2) # B&W RGB representation
+
+    return x_color, y[begin_index:end_index,:]
+
+#%% Sanity check x-reader
+            
+x_testing, y_testing = read_x(2000, 2000, y)
+x_testing.shape
+
+#%%
         
 def get_label_statistics():
     total = np.sum(y)
@@ -115,24 +123,18 @@ plt.tight_layout()
 # Some plotting of first instances of each class
 
 for l in range(num_classes):
-    idx = np.argwhere(y[:,l]==1)[0]
+    idx = np.argwhere(y_testing[:,l]==1)[0]
     
     
     plt.subplot(3, 5, l+1)
     
-    img = images_X[idx].reshape(128, 128, 3)
+    img = x_testing[idx].reshape(128, 128, 3)
         
     plt.imshow(img)
     plt.title(labels[l])
     plt.axis('off')
 
 #%% MODEL
-    
-x_train, x_test, y_train, y_test = train_test_split(images_X, y, test_size=0.2)
-
-x_train.shape  
-
-#%%
 
 from keras.models import Sequential
 from keras.layers import *
@@ -140,6 +142,7 @@ from keras.optimizers import *
 from keras.layers.convolutional import Conv2D
 from keras.layers import BatchNormalization, Dropout
 from keras import backend as K
+from keras.preprocessing.image import ImageDataGenerator
 
 #%% Evaluators
 
@@ -232,14 +235,11 @@ def pairwise_and(a, b):
 
 #%%
 
-batch_size = 512
-epochs = 5
-
 model = Sequential()
 
 # Add layers here
 
-model.add(Conv2D(32, (3, 3), input_shape=image_dim))
+model.add(Conv2D(32, (3, 3), input_shape=(128, 128, 3)))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 
@@ -257,21 +257,65 @@ model.add(Dense(num_classes))
 model.add(Activation("sigmoid"))
 
 
+# binary_crossentropy
 model.compile(loss=bp_mll_loss, 
               optimizer='rmsprop', 
-              metrics=['binary_accuracy', 'categorical_accuracy', f1])
+              metrics=['binary_accuracy', "categorical_accuracy", f1])
+
+
 print(model.summary())
 
+#%% Augmentor
+train_datagen = ImageDataGenerator(
+                rescale=1./255,
+                shear_range=0.2,
+                zoom_range=0.2,
+                horizontal_flip=True,
+                vertical_flip=True,
+                rotation_range=40,
+                width_shift_range=0.2,
+                height_shift_range=0.2,
+                )
 
-# Use 1000 images for training at first because SLOW
-hist = model.fit(x_train[:1000], 
-                 y_train[:1000], 
-                 batch_size=batch_size, 
-                 epochs=epochs,
-                 validation_data=(x_test, y_test),
-                 shuffle=True)
 
+#%%
+import collections
+def get_class_weights(y):
+    w = []
+    for i in range(num_classes):
+        labels_i = y[:, i]
+        counter = collections.Counter(labels_i)
+        w.append({cls: count for cls, count in counter.items()})
+    return w
 
+batch_size = 2000
+iterations = [0,2000,4000, 8000]
+overall_history = []
+x_test, y_test = [], []
+epochs = 2
+
+for i in range(len(iterations)):
+    print("E:", i)
+    x_some, y_some = read_x(batch_size, iterations[i], y)
+    
+    # combine all val created here into final test set?
+    x_train, x_val, y_train, y_val = train_test_split(x_some, y_some, test_size=0.1)
+    x_test.append(x_train)
+    y_test.append(y_train)
+
+    # TODO: Fix
+    #class_weight = class_weight.compute_class_weight(get_class_weights(y_train), classes=[0,1], y=y_train)
+
+    history = model.fit_generator(train_datagen.flow(x_train, y_train, batch_size=4),
+                                    steps_per_epoch=len(x_train) / 4, 
+                                    epochs=epochs,
+                                    validation_data=(x_val, y_val),
+                                    class_weight=get_class_weights(y_train))
+    overall_history.append(history)
+
+# Flat arrays of numpy arrays
+x_test = np.concatenate(x_test, axis=0)
+y_test = np.concatenate(y_test, axis=0)
 #%% Model evaluation
 
 scores = model.evaluate(x_test, y_test, verbose=2)
@@ -292,38 +336,66 @@ print("Hamming loss:", hamming_loss(y_test, y_pred))
 
 def plot_train_metrics():
     plt.subplot(1,2,1)
-    plt.plot(hist.history['binary_accuracy'])
+    bin_acc_per_epoch = np.array([e.history['binary_accuracy'] for e in overall_history]).flatten()
+    plt.plot(bin_acc_per_epoch)
     plt.title("binary_acc")
-    plt.ylim((0, 1))
     plt.subplot(1,2,2)
-    plt.plot(hist.history['loss'])
+    loss_per_epoch = np.array([e.history['loss'] for e in overall_history]).flatten()
+    plt.plot(loss_per_epoch)
     plt.title("loss")
     plt.subplot(1,2,1)
-    plt.plot(hist.history['val_f1'])
+    loss_per_epoch = np.array([e.history['val_f1'] for e in overall_history]).flatten()
+    plt.plot(loss_per_epoch)
     plt.title("bin_acc/f1")
-    plt.ylim((0, 1))
+    plt.ylim((0,1))
     plt.tight_layout()
     
 plot_train_metrics()
 
 #%% Confusion-matrix
 
-for i in range(y_train.shape[1]):
-    print("Col {}".format(i))
-    tn, fp, fn, tp = confusion_matrix(y_test[:,i], y_pred[:,i]).ravel()
-    print("Label {}".format(labels[i]))
-    print("True-Neg:", tn)
-    print("False-Neg:", fn)
-    print("True-Pos:", tp)
-    print("False-Pos:", tn)
-    print("")
+plt.figure(figsize=(20, 10))
+true_pos = np.sum(y_test * y_pred, axis=0)
+for i in range(len(true_pos)):
+    
+    plt.subplot(3, 5, i+1)
+    
+    true_neg, false_pos, false_neg, true_pos = confusion_matrix(y_test[:,i], y_pred[:,i]).ravel()
+    
+    matrix = np.zeros((2,2), dtype="uint32")
+    matrix[0,0] = true_pos
+    matrix[0,1] = false_neg
+    matrix[1,1] = true_neg
+    # sanity check: bottom left, predicted pos, true was neg
+    matrix[1,0] = false_pos
 
+    plt.imshow(matrix, 
+               cmap=plt.cm.Blues, 
+               interpolation='nearest',
+               vmin=0, vmax=10000)
+
+    for j in range(2):
+        for k in range(2):
+            plt.text(k, j, str(matrix[j,k]),
+                        fontsize=15,
+                        horizontalalignment='center',
+                        verticalalignment='center')
+
+    classes = ["Pos", "Neg"]
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+    plt.ylabel('True')
+    plt.xlabel('Pred')
+    plt.title(labels[i], fontsize=15)
+    
+
+plt.tight_layout()
+plt.show()
 # In[24]:
 
 def get_readable_labels(y_i):
     return [labels[i] for (i,x) in enumerate(y_i) if x]
-
-
 
 
 
