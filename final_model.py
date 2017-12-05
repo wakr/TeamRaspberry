@@ -1,3 +1,4 @@
+#%%
 from keras.utils.data_utils import get_file
 import matplotlib.pylab as plt
 import numpy as np
@@ -15,12 +16,14 @@ dl_file='dl2017-image-proj.zip'
 dl_url='https://www.cs.helsinki.fi/u/mvsjober/misc/'
 get_file(dl_file, dl_url+dl_file, cache_dir='./', cache_subdir=database_path, extract=True)
 
-#%% 
+print('download complete')
+#%%
 
 
 image_count = 20000
 image_dim = (128, 128, 3) # 128 x 128; RGB
 
+print('cell run')
 #%% Form y
 
 num_classes = 14 + 1
@@ -61,6 +64,44 @@ for row in y:
     if sum(row) == 0:
         row[UNCLASSIFIED_BIT] = 1
 
+print('classes and y labels created')
+
+#%%
+###
+# Finding "mutually exclusive" item
+###
+
+find_mutex = True
+if find_mutex:
+    # track mutually exclusive items
+    #from scipy.misc import imshow
+    from matplotlib.pyplot import imshow
+    mutex = np.zeros((num_classes-1,num_classes-1), dtype=np.uint8)
+
+    def _get_all_indices(list_vals, spec_val):
+        return [i for i,x in enumerate(list_vals) if x == spec_val]
+
+    for row in y:
+        one_indices = _get_all_indices(row[:-1], 1)
+        for i in one_indices:
+            for j in one_indices:
+                mutex[i,j] += 1
+                
+    #print(mutex)
+    #mutex /= max(mutex)
+    imshow(mutex, cmap='Greys')
+
+    for i in range(len(mutex)):
+        nonzero = [labels[j] for j,x in enumerate(mutex[i]) if x == 0]
+        print('%10s:\t%s' % (labels[i],nonzero))
+
+
+    print(mutex)
+
+print('mutexes enumerated')
+
+#%%
+
 #%%
 # normalizing range to be in 0.0 to 1.0
 my_dtype = "uint8"
@@ -85,10 +126,12 @@ def read_x(batch_size, begin_index, y):
 
     return x_color, y[begin_index:end_index,:]
 
+print('read_x defined')
+
 #%% Sanity check x-reader
-            
+
 x_testing, y_testing = read_x(2000, 2000, y)
-x_testing.shape
+print(x_testing.shape)
 
 #%%
         
@@ -143,7 +186,7 @@ from keras.layers.convolutional import Conv2D
 from keras.layers import BatchNormalization, Dropout
 from keras import backend as K
 from keras.preprocessing.image import ImageDataGenerator
-
+print('model imports done')
 #%% Evaluators
 
 def f1(y_true, y_pred):
@@ -185,7 +228,7 @@ from sklearn.metrics import f1_score
 def f1__score_micro(y_true, y_pred):
     return f1_score(y_true, y_pred, average='micro')
 
-
+print('evaluators and metrics defined')
 #%%
     
 # bp mll loss function
@@ -233,6 +276,7 @@ def pairwise_and(a, b):
     row = K.expand_dims(b, 1)
     return K.minimum(column, row)
 
+print('loss function(s)')
 #%%
 
 model = Sequential()
@@ -277,6 +321,7 @@ train_datagen = ImageDataGenerator(
                 height_shift_range=0.2,
                 )
 
+print('data generator defined')
 
 #%%
 import collections
