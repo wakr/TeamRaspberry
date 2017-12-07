@@ -100,7 +100,6 @@ if find_mutex:
 
 print('mutexes enumerated')
 
-#%%
 
 #%%
 # normalizing range to be in 0.0 to 1.0
@@ -334,19 +333,19 @@ def get_class_weights(y):
     return w
 
 batch_size = 2000
-iterations = [0,2000,4000, 8000]
+iterations = [0,2000,4000, 8000, 10000]  # can go up to 20000
 overall_history = []
 x_test, y_test = [], []
 epochs = 2
 
 for i in range(len(iterations)):
-    print("E:", i)
+    print("I:", i)
     x_some, y_some = read_x(batch_size, iterations[i], y)
     
     # combine all val created here into final test set?
     x_train, x_val, y_train, y_val = train_test_split(x_some, y_some, test_size=0.1)
-    x_test.append(x_train)
-    y_test.append(y_train)
+    x_test.append(x_val)
+    y_test.append(y_val)
 
     # TODO: Fix
     #class_weight = class_weight.compute_class_weight(get_class_weights(y_train), classes=[0,1], y=y_train)
