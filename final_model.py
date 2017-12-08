@@ -259,9 +259,11 @@ def bp_mll_loss(y_true, y_pred):
     y_i_bar_sizes = K.sum(y_i_bar, axis=1)
     normalizers = y_i_sizes * y_i_bar_sizes
     results = sums / normalizers
-
+    pseudo_f1 = f1(y_true, y_pred)
+    pseudo_f1 = K.switch(pseudo_f1, K.epsilon(), pseudo_f1)
     # sum over samples
-    return K.sum(results)
+    sum_over_samples = K.sum(results)
+    return sum_over_samples #+ (100 * (1 - pseudo_f1))
 
 # compute pairwise differences between elements of the tensors a and b
 def pairwise_sub(a, b):
@@ -274,6 +276,7 @@ def pairwise_and(a, b):
     column = K.expand_dims(a, 2)
     row = K.expand_dims(b, 1)
     return K.minimum(column, row)
+
 
 print('loss function(s)')
 #%%
@@ -295,7 +298,7 @@ model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 
 model.add(Flatten())
-model.add(Dropout(0.2))
+model.add(Dropout(0.4))
 model.add(Dense(num_classes))
 model.add(Activation("sigmoid"))
 
@@ -310,6 +313,7 @@ print(model.summary())
 
 #%% Augmentor
 train_datagen = ImageDataGenerator(
+                samplewise_center=True,
                 rescale=1./255,
                 shear_range=0.2,
                 zoom_range=0.2,
@@ -322,39 +326,47 @@ train_datagen = ImageDataGenerator(
 
 print('data generator defined')
 
+#%% Create class_weights
+import math
+def create_class_weight(labels_dict,mu=0.55):
+    total = sum(labels_dict.values())
+    keys = labels_dict.keys()
+    class_weight = dict()
+
+    for key in keys:
+        score = math.log(mu*total/float(labels_dict[key]))
+        class_weight[key] = int(score) if score > 1.0 else 1
+
+    return class_weight
+
+total_sum_y = y.sum(axis=0)
+y_max = total_sum_y.max()
+
+labels_dict = {i: (x) for (i, x) in enumerate(total_sum_y)}
+cw = create_class_weight(labels_dict)
+
 #%%
-import collections
-def get_class_weights(y):
-    w = []
-    for i in range(num_classes):
-        labels_i = y[:, i]
-        counter = collections.Counter(labels_i)
-        w.append({cls: count for cls, count in counter.items()})
-    return w
+
 
 batch_size = 2000
-iterations = [0,2000,4000, 8000, 10000]  # can go up to 20000
+iterations = [i * batch_size for i in range(int(image_count / batch_size))]  # can go up to 20000
 overall_history = []
 x_test, y_test = [], []
-epochs = 2
+epochs = 4
 
 for i in range(len(iterations)):
     print("I:", i)
     x_some, y_some = read_x(batch_size, iterations[i], y)
     
-    # combine all val created here into final test set?
     x_train, x_val, y_train, y_val = train_test_split(x_some, y_some, test_size=0.1)
     x_test.append(x_val)
     y_test.append(y_val)
-
-    # TODO: Fix
-    #class_weight = class_weight.compute_class_weight(get_class_weights(y_train), classes=[0,1], y=y_train)
 
     history = model.fit_generator(train_datagen.flow(x_train, y_train, batch_size=4),
                                     steps_per_epoch=len(x_train) / 4, 
                                     epochs=epochs,
                                     validation_data=(x_val, y_val),
-                                    class_weight=get_class_weights(y_train))
+                                    class_weight=cw)
     overall_history.append(history)
 
 # Flat arrays of numpy arrays
