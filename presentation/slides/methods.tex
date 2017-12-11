@@ -58,16 +58,30 @@
 			\end{itemize}
 		\end{itemize}
 	\begin{block}{Class weight function}
-		$W(c_i;\lambda) = \ln\left(\dfrac{\lambda \sum_{c}|c|}{|c_i|}\right)$
+	\begin{align*}
+	S(c_i;\lambda) = \ln\left(\lambda \dfrac{\sum_{c}|c|}{|c_i|}\right)\\\\
+	W(c_i; \lambda) = \max(S(c_i;\lambda), 1)
+	\end{align*}
 	\end{block}
 \end{frame}
 
 \begin{frame}
 	\frametitle{Methods}
-	\framesubtitle{Topology}
+	\framesubtitle{Network topology}
 	\begin{itemize}
-		\item Thing1
-		\item Thing2
+		\item One network that outputs 15 classes
+		\item Three convolution layers all followed by max pooling
+		\begin{itemize}
+			\item Filters 32, 32, 64
+			\item Kernel size $3 x 3$
+			\item Max pool size $2 x 2$
+			\item ReLu as activation function
+		\end{itemize}
+		\item After pooling flattening via dropout to dense layer with sigmoid activation
+		\begin{itemize}
+			\item Dropout value: 0.4
+		\end{itemize}
+		\item Very simple network
 	\end{itemize}
 \end{frame}
 
@@ -75,8 +89,19 @@
 	\frametitle{Methods}
 	\framesubtitle{Loss function}
 	\begin{itemize}
-		\item Thing1
-		\item Thing2
+		\item Categorical crossentropy wouldn't work as one image can be in many classes
+		\item Binary crossentropy was suggested in many forum posts
+			\begin{itemize}
+				\item Still not viable solution when there are many overlapping categories
+				\item Loss is too forgiving for giving 0 labels
+			\end{itemize}
+		\item Solution: "custom" loss function \textbf{BP-MLL}\footnote{Backpropagation for Multilabel Learning}
+		\begin{itemize}
+			\item Actually taken directly from the paper [1]\footnote{[1] \emph{Multilabel Neural Networks with Applications to Functional Genomics and Text Categorization}, 2006}
+			\item Designed for multi-label problems
+			\item Implementation for Keras can be found from internet
+			\item Punishes more from just giving 0 labels
+		\end{itemize}
 	\end{itemize}
 \end{frame}
 
