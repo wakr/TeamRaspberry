@@ -5,7 +5,7 @@ import numpy as np
 from scipy.misc import imread
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
-from sklearn.metrics import hamming_loss
+from sklearn.metrics import hamming_loss, average_precision_score
 from sklearn.utils import class_weight
 
 #%%
@@ -335,7 +335,7 @@ def create_class_weight(labels_dict,mu=0.55):
 
     for key in keys:
         score = math.log(mu*total/float(labels_dict[key]))
-        class_weight[key] = int(score) if score > 1.0 else 1
+        class_weight[key] = score if score > 1.0 else 1
 
     return class_weight
 
@@ -352,8 +352,8 @@ batch_size = 2000
 iterations = [i * batch_size for i in range(int(image_count / batch_size))]  # can go up to 20000
 overall_history = []
 x_test, y_test = [], []
-epochs = 4
-
+epochs = 1
+print("Will run for {} iterations".format(len(iterations)))
 for i in range(len(iterations)):
     print("I:", i)
     x_some, y_some = read_x(batch_size, iterations[i], y)
@@ -380,14 +380,27 @@ print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
 print("%s: %.2f%%" % (model.metrics_names[2], scores[2]*100))
 
 
-threshold = 0.5
-
+#%% Choose the best treshold
 pred = model.predict(x_test)
-pred[np.where(pred > threshold)] = 1
-pred[np.where(pred <= threshold)] = 0
-y_pred = pred
+thresholds = [0.1, 0.25, 0.5, 0.75, 0.8, 0.95]
+tres_scores = []
+for threshold in thresholds:
+    y_pred = np.copy(pred)
+    y_pred[np.where(y_pred > threshold)] = 1
+    y_pred[np.where(y_pred <= threshold)] = 0
+    f1 = f1_score(y_test, y_pred, average='micro')
+    tres_scores.append((threshold, f1))
+
+tres_scores.sort(key=lambda x: x[1]) # sort by f1 score
+best_tres = tres_scores[-1][0]
+print("Set best treshold as {}".format(best_tres))
+
+y_pred = np.copy(pred)
+y_pred[np.where(y_pred > best_tres)] = 1
+y_pred[np.where(y_pred <= best_tres)] = 0
 print("F1:", f1_score(y_test, y_pred, average='micro'))
 print("Hamming loss:", hamming_loss(y_test, y_pred))
+print(str(average_precision_score(y_test, y_pred, average="micro")))
 #%%
 
 def plot_train_metrics():
