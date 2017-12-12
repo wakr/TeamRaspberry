@@ -219,7 +219,7 @@ def f1(y_true, y_pred):
     
     precision = precision(y_true, y_pred)
     recall = recall(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall))
+    return 2*((precision*recall)/(precision+recall + K.epsilon()))
 
 # Definition of custom metrics as the project is ranked with F1 score
 from sklearn.metrics import f1_score
@@ -352,7 +352,7 @@ batch_size = 2000
 iterations = [i * batch_size for i in range(int(image_count / batch_size))]  # can go up to 20000
 overall_history = []
 x_test, y_test = [], []
-epochs = 1
+epochs = 2
 print("Will run for {} iterations".format(len(iterations)))
 for i in range(len(iterations)):
     print("I:", i)
@@ -361,7 +361,12 @@ for i in range(len(iterations)):
     x_train, x_val, y_train, y_val = train_test_split(x_some, y_some, test_size=0.1)
     x_test.append(x_val)
     y_test.append(y_val)
-
+    
+    total_sum_y = y_train.sum(axis=0)
+    labels_dict = {i: (x) for (i, x) in enumerate(total_sum_y)}
+    cw = create_class_weight(labels_dict)
+    
+    
     history = model.fit_generator(train_datagen.flow(x_train, y_train, batch_size=4),
                                     steps_per_epoch=len(x_train) / 4, 
                                     epochs=epochs,
