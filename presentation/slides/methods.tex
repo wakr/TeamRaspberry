@@ -87,15 +87,22 @@
 
 \begin{frame}
 	\frametitle{Methods}
-	\framesubtitle{Loss function}
+	\framesubtitle{Loss function 1/2}	
 	\begin{itemize}
 		\item Categorical crossentropy wouldn't work as one image can be in many classes
-		\item Binary crossentropy was suggested in many forum posts
+		\item Binary crossentropy was suggested in many forum posts				
 			\begin{itemize}
 				\item Still not viable solution when there are many overlapping categories
 				\item Loss is too forgiving for giving 0 labels
 			\end{itemize}
-		\item Solution: "custom" loss function \textbf{BP-MLL}\footnote{Backpropagation for Multilabel Learning}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Methods}
+	\framesubtitle{Loss function 2/2}
+	\begin{itemize}
+				\item Solution: "custom" loss function \textbf{BP-MLL}\footnote{Backpropagation for Multilabel Learning}
 		\begin{itemize}
 			\item Actually taken directly from the paper [1]\footnote{[1] \emph{Multilabel Neural Networks with Applications to Functional Genomics and Text Categorization}, 2006}
 			\item Designed for multi-label problems
@@ -103,13 +110,24 @@
 			\item Punishes more from just giving 0 labels
 		\end{itemize}
 	\end{itemize}
+	\begin{block}{}
+			$$ E =  \sum_{i=1}^{m} \dfrac{1}{|Y_i||\bar{Y_i}|} \sum_{(k,l) \in Y_i \times \bar{Y_i}} \exp(-(c_k^i -c_l^i))$$
+	\end{block}	
 \end{frame}
 
 \begin{frame}
 	\frametitle{Methods}
 	\framesubtitle{Validation}
 	\begin{itemize}
-		\item Thing1
-		\item Thing2
+		\item Per batch, 10\% of the data is randomly selected
+		\item This subset is left out from the training phase
+		\item Validated against in the final step
+		\item With F1-score, we also inspected
+		\begin{itemize}
+			\item Binary accuracy
+			\item Categorical accuracy
+			\item Hamming loss
+			\item Micro averaged precision score
+		\end{itemize}
 	\end{itemize}
 \end{frame}
