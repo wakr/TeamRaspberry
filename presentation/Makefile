@@ -6,3 +6,4 @@ presentation: presentation.pdf
 
 presentation.pdf: presentation.tex slides/*.tex images/*
 	pdflatex presentation.tex
+	pdflatex presentation.tex
