@@ -344,7 +344,6 @@ y_max = total_sum_y.max()
 
 labels_dict = {i: (x) for (i, x) in enumerate(total_sum_y)}
 cw = create_class_weight(labels_dict)
-
 #%%
 
 
@@ -365,6 +364,7 @@ for i in range(len(iterations)):
     total_sum_y = y_train.sum(axis=0)
     labels_dict = {i: (x) for (i, x) in enumerate(total_sum_y)}
     cw = create_class_weight(labels_dict)
+    cw[14] = np.minimum(cw[14], 0.2)
     
     
     history = model.fit_generator(train_datagen.flow(x_train, y_train, batch_size=4),
