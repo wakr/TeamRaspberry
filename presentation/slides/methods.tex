@@ -70,12 +70,12 @@
 	\framesubtitle{Network topology}
 	\begin{itemize}
 		\item One network that outputs 15 classes
-		\item Three convolution layers all followed by max pooling
+		\item Four convolution layers all followed by max pooling
 		\begin{itemize}
-			\item Filters 32, 32, 64
+			\item Filters 16, 32, 32, 64
 			\item Kernel size $3 x 3$
 			\item Max pool size $2 x 2$
-			\item ReLu as activation function
+			\item ReLU as activation function
 		\end{itemize}
 		\item After pooling flattening via dropout to dense layer with sigmoid activation
 		\begin{itemize}

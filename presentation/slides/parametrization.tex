@@ -1,17 +1,21 @@
-\section{Parametrization}
+\newcommand{\secttitle}{Parametrization}
+\section{\secttitle}
 
 \begin{frame}
 	\frametitle{Parametrization results}
-	\begin{itemize}
-		\item Our parameter tryouts
-	\end{itemize}
-	\iffalse
+	%\framesubtitle{
+	%\begin{itemize}
+		%\item 
+		%Our parameter tryouts
+	%\end{itemize}
+	%}
+	%\iffalse
 	\begin{table}[]
 \centering
-\caption{My caption}
+\caption{Parameter Tryouts}
 \label{my-label}
 \begin{tabular}{cll}
-\multicolumn{1}{l}{\textbf{Model n./Validation}} & \textbf{F1} & \textbf{Hamming loss} \\
+\multicolumn{1}{l}{\textbf{Model n.}} & \textbf{F1} & \textbf{HL}\footnote{Hamming Loss} \\
 1                                                & 0.462       & 0.125                 \\
 2                                                & 0.452       & 0.128                 \\
 3                                                & 0.459       & 0.125                 \\
@@ -27,5 +31,31 @@
 9.2                                              & 0.378       & 0.184                
 \end{tabular}
 \end{table}
-	\fi
+	%\fi
+\end{frame}
+
+\begin{frame}
+	\frametitle{\secttitle}
+	\framesubtitle{Parameterization Tweaks}
+	\begin{enumerate}
+		\item ``Default''
+		\item Increased deeply-connected layers
+		\item Adagrad optimizer
+		\item Nadam optimizer
+		\item More convolutions
+		\item Even more convolutions
+		\item Reverse convolution triangle
+		\item Learning Rate Adjustments
+			\begin{enumerate}
+				\item \texttt{lr=0.0005}
+				\item \texttt{lr=0.000333}
+				\item \texttt{lr=0.002}
+				\item \texttt{lr=0.005}
+			\end{enumerate}
+		\item Activation Functions
+			\begin{enumerate}
+				\item Leaky ReLU ($\alpha = 0.3$)
+				\item \texttt{tanh}
+			\end{enumerate}
+	\end{enumerate}
 \end{frame}
