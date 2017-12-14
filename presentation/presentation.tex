@@ -3,13 +3,19 @@
 \usepackage[utf8]{inputenc}
 \usepackage{subcaption}
 
+% Remove footer stuff
+% Courtesy: https://tex.stackexchange.com/questions/223200/how-to-completely-remove-footer-in-beamer
+\setbeamertemplate{footline}[frame number]{}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{}
+
 % Courtesy: https://www.cs.cornell.edu/Info/Misc/LaTeX-Tutorial/Solutions/foot-symbols.html
 \renewcommand{\thefootnote}{\fnsymbol{footnote}}
 
 
 \title{Team Raspberry - Image Classification}
 \author{Kristian Wahlroos \and Ilkka Vähämaa \and Sean Lang}
-\date{December 15\textsuperscript{th}, 2017}
+\date{December 15, 2017}
 
 \begin{document}
 
